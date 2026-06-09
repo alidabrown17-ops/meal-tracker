@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meal Tracker">
+<title>Alida's Meal Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #0c0b12; color: #e2dff0; font-family: 'DM Sans', 'Segoe UI', sans-serif; overscroll-behavior: none; }
+  input, button, textarea { font-family: inherit; outline: none; }
+  button { cursor: pointer; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a1f40; border-radius: 99px; }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .fade-in { animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ── MEAL PLAN DATA ────────────────────────────────────────────────────────────
+const PLAN = {
+  Monday: {
+    breakfast: [{ text: "Scrambled Eggs on Toast", cal: 280 }, { text: "Banana Oat Pancakes", cal: 320 }],
+    lunch:     [{ text: "Tuna & Rice Salad", cal: 340 }, { text: "Chicken & Corn Soup", cal: 300 }],
+    dinner:    [{ text: "Baked Chicken Thigh with Rice & Veg", cal: 420 }, { text: "Beef Mince Bolognese", cal: 440 }],
+    snack:     [{ text: "Almonds or Boiled Egg", cal: 120 }, { text: "Rice Cakes with Peanut Butter", cal: 130 }, { text: "Protein Water", cal: 90 }, { text: "Apple with Almond Butter", cal: 160 }],
+  },
+  Tuesday: {
+    breakfast: [{ text: "Overnight Oats with Banana", cal: 310 }, { text: "Poached Eggs & Avocado on Toast", cal: 300 }],
+    lunch:     [{ text: "Chicken & Veggie Soup", cal: 300 }, { text: "Tuna Rice Bowl", cal: 360 }],
+    dinner:    [{ text: "Beef Mince Patties with Sweet Potato Mash", cal: 450 }, { text: "Chicken Thigh Bake with Roasted Veg", cal: 410 }],
+    snack:     [{ text: "Rice Cakes with Avocado", cal: 150 }, { text: "Boiled Egg", cal: 80 }, { text: "Protein Water", cal: 90 }, { text: "Cashews", cal: 160 }],
+  },
+  Wednesday: {
+    breakfast: [{ text: "Poached Eggs & Avocado on Toast", cal: 300 }, { text: "Scrambled Eggs & Baked Beans on Toast", cal: 330 }],
+    lunch:     [{ text: "Beef Patty Wrap with Lettuce", cal: 370 }, { text: "Egg & Salad Sandwich", cal: 290 }],
+    dinner:    [{ text: "Baked Chicken Breast with Green Beans & Rice", cal: 390 }, { text: "Beef Stir Fry with Noodles", cal: 430 }],
+    snack:     [{ text: "Apple with Peanut Butter", cal: 180 }, { text: "Protein Water", cal: 90 }, { text: "Rice Cakes with Hummus", cal: 130 }, { text: "Almonds", cal: 170 }],
+  },
+  Thursday: {
+    breakfast: [{ text: "Banana Oat Pancakes", cal: 320 }, { text: "Overnight Oats with Banana", cal: 310 }],
+    lunch:     [{ text: "Egg & Salad Sandwich", cal: 290 }, { text: "Leftover Chicken with Rice & Veg", cal: 350 }],
+    dinner:    [{ text: "Slow Cooker Chicken Drumsticks with Roasted Veg", cal: 430 }, { text: "Beef Mince & Veggie Stir Fry", cal: 450 }],
+    snack:     [{ text: "Mixed Nuts", cal: 170 }, { text: "Protein Water", cal: 90 }, { text: "Boiled Egg", cal: 80 }, { text: "Rice Cakes with Avocado", cal: 150 }],
+  },
+  Friday: {
+    breakfast: [{ text: "Scrambled Eggs & Baked Beans on Toast", cal: 330 }, { text: "French Toast with Banana", cal: 370 }],
+    lunch:     [{ text: "Tuna Rice Bowl", cal: 350 }, { text: "Chicken Wrap with Avocado", cal: 390 }],
+    dinner:    [{ text: "Beef Stir Fry with Noodles", cal: 430 }, { text: "Baked Chicken Thighs with Mashed Potato", cal: 420 }],
+    snack:     [{ text: "Boiled Egg or Rice Cakes with Avocado", cal: 130 }, { text: "Protein Water", cal: 90 }, { text: "Almonds", cal: 170 }, { text: "Apple", cal: 80 }],
+  },
+  Saturday: {
+    breakfast: [{ text: "French Toast with Banana", cal: 370 }, { text: "Veggie Omelette", cal: 280 }],
+    lunch:     [{ text: "Homemade Baked Chicken Nuggets", cal: 360 }, { text: "Beef Mince Tacos", cal: 410 }],
+    dinner:    [{ text: "Lamb Chops with Mashed Potato & Broccoli", cal: 480 }, { text: "Slow Cooker Beef & Vegetable Stew", cal: 450 }],
+    snack:     [{ text: "Fruit Skewers (Toddler Fave!)", cal: 90 }, { text: "Protein Water", cal: 90 }, { text: "Rice Cakes with Peanut Butter", cal: 130 }, { text: "Mixed Nuts", cal: 170 }],
+  },
+  Sunday: {
+    breakfast: [{ text: "Veggie Omelette", cal: 280 }, { text: "Scrambled Eggs on Toast", cal: 280 }],
+    lunch:     [{ text: "Leftover Protein with Salad", cal: 320 }, { text: "Chicken & Corn Soup", cal: 300 }],
+    dinner:    [{ text: "Beef Mince Pasta (Tomato-Based)", cal: 460 }, { text: "Roast Chicken Breast with Roasted Veg", cal: 390 }],
+    snack:     [{ text: "Rice Cakes with Hummus", cal: 130 }, { text: "Protein Water", cal: 90 }, { text: "Boiled Egg", cal: 80 }, { text: "Apple with Peanut Butter", cal: 200 }],
+  },
+};
+
+const DAYS   = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const SLOTS  = ["breakfast","lunch","dinner","snack"];
+const ICONS  = { breakfast: "☀", lunch: "◐", dinner: "●", snack: "◇" };
+const LABELS = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" };
+const TARGET = 1400;
+const START_WEIGHT = 73.9;
+
+// ── localStorage HELPERS ──────────────────────────────────────────────────────
+const ls = {
+  get: (key) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } },
+  set: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} },
+  keys: (prefix) => { try { return Object.keys(localStorage).filter(k => k.startsWith(prefix)).sort().reverse(); } catch { return []; } }
+};
+
+function getWeekKey(offset = 0) {
+  const now = new Date();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - ((now.getDay() + 6) % 7) + offset * 7);
+  return "week-" + mon.toISOString().slice(0, 10);
+}
+
+function getWeekLabel(offset) {
+  if (offset === 0)  return "This Week";
+  if (offset === -1) return "Last Week";
+  if (offset === -2) return "2 Weeks Ago";
+  return Math.abs(offset) + " Weeks Ago";
+}
+
+function defaultWeekData() {
+  const d = {};
+  DAYS.forEach(day => {
+    d[day] = {};
+    SLOTS.forEach(slot => { d[day][slot] = { selectedIdx: 0, override: null, logged: false }; });
+  });
+  return d;
+}
+
+// ── STYLES ────────────────────────────────────────────────────────────────────
+const S = {
+  app:    { minHeight: "100vh", background: "#0c0b12", color: "#e2dff0", paddingBottom: 60 },
+  hdr:    { background: "linear-gradient(135deg,#130d24 0%,#0c1020 100%)", borderBottom: "1px solid #1e1835", padding: "env(safe-area-inset-top, 16px) 20px 20px" },
+  card:   { background: "#13111e", border: "1px solid #1e1835", borderRadius: 14, padding: "14px 16px", marginBottom: 10 },
+  input:  { background: "#0e0c18", border: "1px solid #2a1f40", color: "#e2dff0", borderRadius: 8, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", width: "100%", boxSizing: "border-box" },
+  pill:   (on) => ({ padding: "5px 14px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontSize: 12, fontWeight: 600, background: on ? "#a78bfa22" : "transparent", borderColor: on ? "#a78bfa" : "#2a1f40", color: on ? "#a78bfa" : "#6b58a0" }),
+  btn:    (v="ghost") => ({ ghost: { background:"transparent", border:"1px solid #2a1f40", color:"#8a7faa", borderRadius:8, padding:"5px 12px", fontSize:12 }, primary: { background:"#a78bfa", border:"none", color:"#fff", borderRadius:8, padding:"8px 18px", fontSize:13, fontWeight:700 }, danger: { background:"transparent", border:"1px solid #7f1d1d", color:"#f87171", borderRadius:8, padding:"5px 10px", fontSize:11 } })[v],
+  calBadge: (cal, hi) => ({ fontSize:11, fontWeight:700, color: hi?"#fbbf24":"#a78bfa", background: hi?"#2a1f0055":"#1e153055", border:`1px solid ${hi?"#7a520055":"#3d256855"}`, borderRadius:20, padding:"2px 10px", whiteSpace:"nowrap" }),
+  tag:    (color) => ({ fontSize:10, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color }),
+};
+
+function calColor(c) {
+  if (c < 1000) return "#60a5fa";
+  if (c <= TARGET) return "#4ade80";
+  if (c <= 1600)   return "#fbbf24";
+  return "#f87171";
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+function App() {
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const [weekOffset, setWeekOffset]   = useState(0);
+  const [weekData,   setWeekData]     = useState(() => ls.get(getWeekKey(0)) || defaultWeekData());
+  const [weightLog,  setWeightLog]    = useState(() => ls.get("weight-log") || []);
+  const [activeDay,  setActiveDay]    = useState(DAYS[todayIdx]);
+  const [view,       setView]         = useState("tracker");
+  const [editSlot,   setEditSlot]     = useState(null);
+  const [overInput,  setOverInput]    = useState({ text:"", cal:"" });
+  const [showOpts,   setShowOpts]     = useState(null);
+  const [wtInput,    setWtInput]      = useState("");
+  const [wtNote,     setWtNote]       = useState("");
+
+  // Reload when week changes
+  useEffect(() => {
+    setWeekData(ls.get(getWeekKey(weekOffset)) || defaultWeekData());
+    setEditSlot(null); setShowOpts(null);
+  }, [weekOffset]);
+
+  // Save week data
+  function saveWeek(data) { ls.set(getWeekKey(weekOffset), data); }
+
+  function updateSlot(day, slot, patch) {
+    const next = { ...weekData, [day]: { ...weekData[day], [slot]: { ...weekData[day][slot], ...patch } } };
+    setWeekData(next); saveWeek(next);
+  }
+
+  function applyOverride(day, slot) {
+    const cal = parseInt(overInput.cal);
+    if (!overInput.text.trim() || isNaN(cal) || cal < 0) return;
+    updateSlot(day, slot, { override: { text: overInput.text.trim(), cal }, logged: true });
+    setEditSlot(null); setOverInput({ text:"", cal:"" });
+  }
+
+  function clearOverride(day, slot) { updateSlot(day, slot, { override: null }); }
+  function selectPlan(day, slot, idx) { updateSlot(day, slot, { selectedIdx: idx, override: null, logged: true }); setShowOpts(null); }
+  function toggleLogged(day, slot)   { updateSlot(day, slot, { logged: !weekData[day][slot].logged }); }
+
+  function addWeight() {
+    const kg = parseFloat(wtInput);
+    if (isNaN(kg) || kg < 30 || kg > 300) return;
+    const next = [{ date: new Date().toISOString(), kg, note: wtNote.trim() }, ...weightLog].slice(0, 104);
+    setWeightLog(next); ls.set("weight-log", next);
+    setWtInput(""); setWtNote("");
+  }
+
+  function deleteWeight(i) {
+    const next = weightLog.filter((_,j) => j !== i);
+    setWeightLog(next); ls.set("weight-log", next);
+  }
+
+  // Computed
+  function getSlot(day, slot) {
+    const s = weekData[day]?.[slot] || { selectedIdx:0, override:null, logged:false };
+    const plan = PLAN[day][slot];
+    const selected = plan[s.selectedIdx] || plan[0];
+    const active = s.override || selected;
+    return { ...s, plan, selected, active };
+  }
+
+  function dayCals(day, loggedOnly) {
+    return SLOTS.reduce((sum, slot) => {
+      const { active, logged } = getSlot(day, slot);
+      return sum + (loggedOnly ? (logged ? active.cal : 0) : active.cal);
+    }, 0);
+  }
+
+  function fmtDate(iso) { return new Date(iso).toLocaleDateString("en-AU", { day:"numeric", month:"short", year:"numeric" }); }
+  function fmtKg(kg) { return kg.toFixed(1) + " kg"; }
+
+  const latest = weightLog[0];
+  const delta  = latest ? (latest.kg - START_WEIGHT).toFixed(1) : null;
+
+  // ── RENDER ─────────────────────────────────────────────────────────────────
+  return (
+    <div style={S.app}>
+      {/* HEADER */}
+      <div style={S.hdr}>
+        <div style={{ maxWidth:680, margin:"0 auto" }}>
+          <div style={{ fontSize:10, letterSpacing:5, color:"#6b58a0", textTransform:"uppercase", marginBottom:6 }}>Alida's Tracker</div>
+          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
+            <div>
+              <h1 style={{ fontSize:22, fontWeight:800, color:"#f0ecff", lineHeight:1.2 }}>
+                Meal & Weight<br/><span style={{ color:"#a78bfa" }}>Tracker</span>
+              </h1>
+              <p style={{ fontSize:11, color:"#6b58a0", marginTop:4 }}>High-protein · Mounjaro-adapted · {getWeekKey(weekOffset).replace("week-","")}</p>
+            </div>
+            {latest && (
+              <div style={{ textAlign:"right", flexShrink:0 }}>
+                <div style={{ fontSize:22, fontWeight:800, color:"#f0ecff" }}>{fmtKg(latest.kg)}</div>
+                <div style={{ fontSize:11, color: delta <= 0 ? "#4ade80":"#f87171" }}>{delta > 0 ? "+":""}{delta} kg from start</div>
+              </div>
+            )}
+          </div>
+          <div style={{ display:"flex", gap:8, marginTop:14, flexWrap:"wrap" }}>
+            {[["tracker","📋 Tracker"],["weight","⚖️ Weight"],["history","📊 History"]].map(([v,lbl]) => (
+              <button key={v} onClick={() => setView(v)} style={S.pill(view===v)}>{lbl}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth:680, margin:"0 auto", padding:"0 16px" }}>
+
+        {/* ── TRACKER ─────────────────────────────────────────────────────── */}
+        {view === "tracker" && (
+          <div style={{ marginTop:20 }}>
+            {/* Week nav */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+              <button onClick={() => setWeekOffset(w => w-1)} style={S.btn("ghost")}>← Prev</button>
+              <span style={{ fontSize:13, color:"#a78bfa", fontWeight:600 }}>{getWeekLabel(weekOffset)}</span>
+              <button onClick={() => setWeekOffset(w => Math.min(0,w+1))} style={{ ...S.btn("ghost"), opacity: weekOffset>=0?0.3:1 }} disabled={weekOffset>=0}>Next →</button>
+            </div>
+
+            {/* Day pills */}
+            <div style={{ overflowX:"auto", paddingBottom:4, marginBottom:16 }}>
+              <div style={{ display:"flex", gap:6, width:"max-content" }}>
+                {DAYS.map((day,i) => {
+                  const logged  = dayCals(day, true);
+                  const planned = dayCals(day, false);
+                  const hasLog  = SLOTS.some(s => weekData[day]?.[s]?.logged);
+                  const isToday = i === todayIdx && weekOffset === 0;
+                  return (
+                    <button key={day} onClick={() => setActiveDay(day)} style={{
+                      padding:"8px 12px", borderRadius:12, border:"1px solid", cursor:"pointer", textAlign:"center", minWidth:58,
+                      borderColor: activeDay===day ? "#a78bfa" : isToday ? "#4a3a6a" : "#1e1835",
+                      background:  activeDay===day ? "#a78bfa1a" : "#13111e",
+                      color:       activeDay===day ? "#a78bfa" : "#6b58a0",
+                    }}>
+                      <div style={{ fontSize:12, fontWeight:600 }}>{day.slice(0,3)}</div>
+                      {isToday && <div style={{ fontSize:9, color:"#6b58a0", marginTop:1 }}>today</div>}
+                      <div style={{ fontSize:10, marginTop:2, color: hasLog ? calColor(logged):"#3a2f55" }}>
+                        {hasLog ? logged : planned}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Calorie bar */}
+            {(() => {
+              const logged  = dayCals(activeDay, true);
+              const planned = dayCals(activeDay, false);
+              const hasLog  = SLOTS.some(s => weekData[activeDay]?.[s]?.logged);
+              const display = hasLog ? logged : planned;
+              const pct   = Math.min((display / TARGET) * 100, 100);
+              const color = calColor(display);
+              return (
+                <div style={{ ...S.card, marginBottom:14 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:8 }}>
+                    <span style={{ fontSize:11, color:"#6b58a0", textTransform:"uppercase", letterSpacing:2 }}>
+                      {activeDay} {hasLog ? "— logged":"— planned"}
+                    </span>
+                    <div>
+                      <span style={{ fontSize:22, fontWeight:800, color }}>{display}</span>
+                      <span style={{ fontSize:12, color:"#3a2f55", marginLeft:4 }}>/ {TARGET} kcal</span>
+                    </div>
+                  </div>
+                  <div style={{ background:"#1a1530", borderRadius:99, height:6 }}>
+                    <div style={{ width:`${pct}%`, height:"100%", background:color, borderRadius:99, transition:"width 0.4s" }} />
+                  </div>
+                  <div style={{ fontSize:11, color, marginTop:5 }}>
+                    {display < 1000 ? "Low — try to eat a bit more" : display <= TARGET ? "On target ✓" : display <= 1600 ? "Slightly over" : "Over target"}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Meal slots */}
+            {SLOTS.map(slot => {
+              const { selectedIdx, override, active, logged, plan } = getSlot(activeDay, slot);
+              const isEditing  = editSlot?.day===activeDay && editSlot?.slot===slot;
+              const isShowOpts = showOpts === slot;
+
+              return (
+                <div key={slot} className="fade-in" style={{ background: override?"#16121e":"#13111e", border:`1px solid ${override?"#a78bfa44":"#1e1835"}`, borderRadius:14, marginBottom:10, overflow:"hidden" }}>
+                  <div style={{ padding:"12px 14px", display:"flex", alignItems:"flex-start", gap:10 }}>
+                    {/* Log circle */}
+                    <button onClick={() => toggleLogged(activeDay, slot)} style={{ width:26, height:26, borderRadius:"50%", border:`2px solid ${logged?"#a78bfa":"#2a1f40"}`, background: logged?"#a78bfa":"transparent", flexShrink:0, marginTop:2, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:"#fff" }}>
+                      {logged ? "✓" : ""}
+                    </button>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                        <span style={S.tag("#6b58a0")}>{ICONS[slot]} {LABELS[slot]}</span>
+                        {override && <span style={{ fontSize:10, color:"#fbbf24", background:"#2a1f0033", border:"1px solid #7a520033", borderRadius:10, padding:"1px 7px" }}>custom</span>}
+                      </div>
+                      <div style={{ fontSize:14, color: override?"#fbbf24":"#e2dff0", lineHeight:1.4 }}>{active.text}</div>
+                      {override && (
+                        <button onClick={() => clearOverride(activeDay, slot)} style={{ ...S.btn("danger"), marginTop:4, fontSize:10, padding:"2px 8px" }}>✕ clear custom</button>
+                      )}
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, flexShrink:0 }}>
+                      <span style={S.calBadge(active.cal, !!override)}>{active.cal} kcal</span>
+                      <div style={{ display:"flex", gap:4 }}>
+                        <button onClick={() => { setShowOpts(isShowOpts?null:slot); setEditSlot(null); }} style={S.btn("ghost")}>
+                          {isShowOpts ? "Close" : "Swap"}
+                        </button>
+                        <button onClick={() => {
+                          setEditSlot(isEditing ? null : { day:activeDay, slot });
+                          setOverInput(override ? { text:override.text, cal:String(override.cal) } : { text:"", cal:"" });
+                          setShowOpts(null);
+                        }} style={{ ...S.btn("ghost"), color:"#fbbf24", borderColor:"#7a520055" }}>Edit</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Options drawer */}
+                  {isShowOpts && (
+                    <div style={{ borderTop:"1px solid #1e1835", background:"#0e0c18" }}>
+                      <div style={{ padding:"6px 14px 4px", fontSize:10, color:"#3a2f55", letterSpacing:2, textTransform:"uppercase" }}>Select a plan option</div>
+                      {plan.map((opt, idx) => {
+                        const sel = idx===selectedIdx && !override;
+                        return (
+                          <div key={idx} onClick={() => selectPlan(activeDay, slot, idx)} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, padding:"10px 14px", cursor:"pointer", borderBottom: idx<plan.length-1?"1px solid #1a1530":"none", background: sel?"#1e1535":"transparent" }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:10, flex:1 }}>
+                              <div style={{ width:16, height:16, borderRadius:"50%", border:`2px solid ${sel?"#a78bfa":"#2a1f40"}`, background: sel?"#a78bfa":"transparent", flexShrink:0 }} />
+                              <span style={{ fontSize:13, color: sel?"#e2dff0":"#8a7faa" }}>{opt.text}</span>
+                            </div>
+                            <span style={S.calBadge(opt.cal, sel)}>{opt.cal} kcal</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Edit / override drawer */}
+                  {isEditing && (
+                    <div style={{ borderTop:"1px solid #2a1f40", padding:"12px 14px", background:"#0e0c18" }}>
+                      <div style={{ fontSize:10, color:"#fbbf24", letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>◇ Enter what you actually ate</div>
+                      <input style={{ ...S.input, marginBottom:8 }} placeholder="e.g. Chicken burger and chips from café" value={overInput.text} onChange={e => setOverInput(p=>({...p,text:e.target.value}))} />
+                      <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                        <input style={{ ...S.input, width:110 }} type="number" placeholder="Calories" min="0" max="3000" value={overInput.cal} onChange={e => setOverInput(p=>({...p,cal:e.target.value}))} />
+                        <span style={{ fontSize:12, color:"#6b58a0" }}>kcal</span>
+                        <button onClick={() => applyOverride(activeDay, slot)} style={{ ...S.btn("primary"), marginLeft:"auto" }}>Save</button>
+                        <button onClick={() => setEditSlot(null)} style={S.btn("ghost")}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            <div style={{ ...S.card, borderColor:"#14532d33", background:"#0f1a1288", marginTop:4 }}>
+              <div style={{ fontSize:10, color:"#4ade80", letterSpacing:2, textTransform:"uppercase", marginBottom:4 }}>Daily reminder</div>
+              <p style={{ fontSize:12, color:"#4a6e5a", lineHeight:1.6 }}>Tap the circle to mark a meal as eaten. Tap Edit to log what you actually had. Morning stack: chia + greens + creatine. Protein first. Stop at 80% full.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── WEIGHT ──────────────────────────────────────────────────────── */}
+        {view === "weight" && (
+          <div style={{ marginTop:20 }}>
+            <div style={{ ...S.card, marginBottom:16 }}>
+              <div style={{ fontSize:11, color:"#6b58a0", letterSpacing:2, textTransform:"uppercase", marginBottom:12 }}>Log Today's Weight</div>
+              <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                <input style={{ ...S.input, width:110 }} type="number" step="0.1" min="30" max="300" placeholder="e.g. 72.5" value={wtInput} onChange={e => setWtInput(e.target.value)} />
+                <span style={{ color:"#6b58a0", alignSelf:"center", fontSize:13 }}>kg</span>
+                <button onClick={addWeight} style={{ ...S.btn("primary"), marginLeft:"auto" }}>Log Weight</button>
+              </div>
+              <input style={S.input} placeholder="Optional note (e.g. 'time of month', 'felt bloated')" value={wtNote} onChange={e => setWtNote(e.target.value)} />
+            </div>
+
+            {latest && (
+              <div style={{ ...S.card, marginBottom:16 }}>
+                <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+                  {[["Start", START_WEIGHT+" kg","#6b58a0"],["Current",fmtKg(latest.kg),"#a78bfa"],["Change",(delta>0?"+":"")+delta+" kg",delta<=0?"#4ade80":"#f87171"],["Goal","Lean & strong","#60a5fa"]].map(([lbl,val,col]) => (
+                    <div key={lbl} style={{ flex:"1 1 90px" }}>
+                      <div style={{ fontSize:10, color:"#3a2f55", textTransform:"uppercase", letterSpacing:2 }}>{lbl}</div>
+                      <div style={{ fontSize:17, fontWeight:800, color:col, marginTop:2 }}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {weightLog.length > 1 && (() => {
+              const sorted = [...weightLog].reverse();
+              const vals = sorted.map(e=>e.kg);
+              const mn = Math.min(...vals)-0.5, mx = Math.max(...vals)+0.5, rng = mx-mn;
+              const W=560, H=110;
+              const pts = sorted.map((e,i) => `${(i/(sorted.length-1))*(W-40)+20},${H-((e.kg-mn)/rng)*(H-20)-10}`);
+              return (
+                <div style={{ ...S.card, marginBottom:16, overflowX:"auto" }}>
+                  <div style={{ fontSize:11, color:"#6b58a0", letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>Weight Trend</div>
+                  <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", height:H }}>
+                    <polyline points={pts.join(" ")} fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    {sorted.map((e,i) => {
+                      const x=(i/(sorted.length-1))*(W-40)+20, y=H-((e.kg-mn)/rng)*(H-20)-10;
+                      return <circle key={i} cx={x} cy={y} r="3.5" fill="#a78bfa"/>;
+                    })}
+                  </svg>
+                </div>
+              );
+            })()}
+
+            <div style={{ fontSize:11, color:"#6b58a0", letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>Log History</div>
+            {weightLog.length === 0 && <div style={{ ...S.card, color:"#3a2f55", fontSize:13, textAlign:"center" }}>No weight logged yet.</div>}
+            {weightLog.map((e,i) => (
+              <div key={i} style={{ ...S.card, display:"flex", alignItems:"center", gap:12 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:18, fontWeight:800, color:"#a78bfa" }}>{fmtKg(e.kg)}</div>
+                  <div style={{ fontSize:12, color:"#6b58a0" }}>{fmtDate(e.date)}{e.note ? " · "+e.note : ""}</div>
+                  {i < weightLog.length-1 && (
+                    <div style={{ fontSize:11, color: e.kg<weightLog[i+1].kg?"#4ade80":"#f87171", marginTop:2 }}>
+                      {(e.kg-weightLog[i+1].kg).toFixed(1)} kg from previous
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => deleteWeight(i)} style={S.btn("danger")}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── HISTORY ─────────────────────────────────────────────────────── */}
+        {view === "history" && (
+          <div style={{ marginTop:20 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+              <button onClick={() => setWeekOffset(w=>w-1)} style={S.btn("ghost")}>← Prev Week</button>
+              <span style={{ fontSize:13, color:"#a78bfa", fontWeight:600 }}>{getWeekLabel(weekOffset)}</span>
+              <button onClick={() => setWeekOffset(w=>Math.min(0,w+1))} style={{ ...S.btn("ghost"), opacity:weekOffset>=0?0.3:1 }} disabled={weekOffset>=0}>Next →</button>
+            </div>
+
+            <div style={{ ...S.card, marginBottom:16 }}>
+              <div style={{ fontSize:12, color:"#a78bfa", fontWeight:700, marginBottom:10 }}>{getWeekLabel(weekOffset)} — Daily Calories</div>
+              {DAYS.map(day => {
+                const logged  = dayCals(day, true);
+                const planned = dayCals(day, false);
+                const hasLog  = SLOTS.some(s => weekData[day]?.[s]?.logged);
+                const display = hasLog ? logged : planned;
+                const color   = calColor(display);
+                const pct     = Math.min((display/TARGET)*100,100);
+                return (
+                  <div key={day} onClick={() => { setView("tracker"); setActiveDay(day); }} style={{ padding:"7px 0", cursor:"pointer", borderBottom:"1px solid #1a1530" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
+                      <span style={{ fontSize:13, color:"#8a7faa" }}>{day}</span>
+                      <span style={{ fontSize:12, fontWeight:700, color }}>{display} kcal {!hasLog && <span style={{ color:"#3a2f55", fontWeight:400 }}>(planned)</span>}</span>
+                    </div>
+                    <div style={{ background:"#1a1530", borderRadius:99, height:4 }}>
+                      <div style={{ width:`${pct}%`, height:"100%", background:color, borderRadius:99 }}/>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ marginTop:10, paddingTop:8, borderTop:"1px solid #2a1f40", display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:12, color:"#6b58a0" }}>Week total (logged only)</span>
+                <span style={{ fontSize:14, fontWeight:800, color:"#a78bfa" }}>{DAYS.reduce((s,d)=>s+dayCals(d,true),0)} kcal</span>
+              </div>
+            </div>
+
+            {(() => {
+              const customs = [];
+              DAYS.forEach(day => SLOTS.forEach(slot => { const d=weekData[day]?.[slot]; if(d?.override) customs.push({day,slot,...d.override}); }));
+              return customs.length > 0 ? (
+                <div style={{ ...S.card, marginBottom:16 }}>
+                  <div style={{ fontSize:11, color:"#fbbf24", letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>Custom meals this week</div>
+                  {customs.map((c,i) => (
+                    <div key={i} style={{ padding:"6px 0", borderBottom: i<customs.length-1?"1px solid #1a1530":"none" }}>
+                      <div style={{ fontSize:11, color:"#6b58a0" }}>{c.day} · {c.slot}</div>
+                      <div style={{ fontSize:13, color:"#fbbf24" }}>{c.text} <span style={{ color:"#6b58a0" }}>· {c.cal} kcal</span></div>
+                    </div>
+                  ))}
+                </div>
+              ) : null;
+            })()}
+
+            {weightLog.length > 0 && (
+              <div style={S.card}>
+                <div style={{ fontSize:11, color:"#6b58a0", letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>Recent Weight</div>
+                {weightLog.slice(0,6).map((e,i) => (
+                  <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"4px 0", borderBottom:"1px solid #1a1530" }}>
+                    <span style={{ fontSize:12, color:"#6b58a0" }}>{fmtDate(e.date)}{e.note?" · "+e.note:""}</span>
+                    <span style={{ fontSize:13, fontWeight:700, color:"#a78bfa" }}>{fmtKg(e.kg)}</span>
+                  </div>
+                ))}
+                {weightLog.length > 6 && <div style={{ fontSize:11, color:"#3a2f55", marginTop:6 }}>+{weightLog.length-6} more — view in Weight tab</div>}
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+      <div style={{ height:40 }}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
