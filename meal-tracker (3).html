@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meal Tracker">
+<title>Alida's Meal Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #100d1a; color: #efecfb; font-family: 'DM Sans', 'Segoe UI', sans-serif; overscroll-behavior: none; }
+  input, button, textarea { font-family: inherit; outline: none; }
+  button { cursor: pointer; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #392e5a; border-radius: 99px; }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .fade-in { animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ── COLOUR TOKENS (brightened for legibility) ─────────────────────────────────
+const C = {
+  bg:        "#100d1a",
+  card:      "#1a1729",
+  cardAlt:   "#16131f",
+  cardWarm:  "#1f1830",
+  border:    "#2c2546",
+  borderSub: "#272140",
+  borderMid: "#392e5a",
+  text:      "#efecfb",   // primary
+  text2:     "#c8bfe6",   // secondary (was dim — now readable)
+  text3:     "#a99dd0",   // muted labels (was very dim)
+  faint:     "#897cb4",   // faintest, still readable
+  accent:    "#a78bfa",   // fills
+  accentTxt: "#c4b0ff",   // accent text (brighter for contrast)
+  green:     "#5ee08f",
+  greenTxt:  "#9fd9b6",
+  amber:     "#fbbf24",
+  red:       "#fb8585",
+  blue:      "#6db4fb",
+};
+
+// ── MEAL PLAN DATA ────────────────────────────────────────────────────────────
+const PLAN = {
+  Monday: {
+    breakfast: [{ text: "Scrambled Eggs on Toast", cal: 280 }, { text: "Banana Oat Pancakes", cal: 320 }],
+    lunch:     [{ text: "Tuna & Rice Salad", cal: 340 }, { text: "Chicken & Corn Soup", cal: 300 }],
+    dinner:    [{ text: "Baked Chicken Thigh with Rice & Veg", cal: 420 }, { text: "Beef Mince Bolognese", cal: 440 }],
+    snack:     [{ text: "Almonds or Boiled Egg", cal: 120 }, { text: "Rice Cakes with Peanut Butter", cal: 130 }, { text: "Protein Water", cal: 90 }, { text: "Apple with Almond Butter", cal: 160 }],
+  },
+  Tuesday: {
+    breakfast: [{ text: "Overnight Oats with Banana", cal: 310 }, { text: "Poached Eggs & Avocado on Toast", cal: 300 }],
+    lunch:     [{ text: "Chicken & Veggie Soup", cal: 300 }, { text: "Tuna Rice Bowl", cal: 360 }],
+    dinner:    [{ text: "Beef Mince Patties with Sweet Potato Mash", cal: 450 }, { text: "Chicken Thigh Bake with Roasted Veg", cal: 410 }],
+    snack:     [{ text: "Rice Cakes with Avocado", cal: 150 }, { text: "Boiled Egg", cal: 80 }, { text: "Protein Water", cal: 90 }, { text: "Cashews", cal: 160 }],
+  },
+  Wednesday: {
+    breakfast: [{ text: "Poached Eggs & Avocado on Toast", cal: 300 }, { text: "Scrambled Eggs & Baked Beans on Toast", cal: 330 }],
+    lunch:     [{ text: "Beef Patty Wrap with Lettuce", cal: 370 }, { text: "Egg & Salad Sandwich", cal: 290 }],
+    dinner:    [{ text: "Baked Chicken Breast with Green Beans & Rice", cal: 390 }, { text: "Beef Stir Fry with Noodles", cal: 430 }],
+    snack:     [{ text: "Apple with Peanut Butter", cal: 180 }, { text: "Protein Water", cal: 90 }, { text: "Rice Cakes with Hummus", cal: 130 }, { text: "Almonds", cal: 170 }],
+  },
+  Thursday: {
+    breakfast: [{ text: "Banana Oat Pancakes", cal: 320 }, { text: "Overnight Oats with Banana", cal: 310 }],
+    lunch:     [{ text: "Egg & Salad Sandwich", cal: 290 }, { text: "Leftover Chicken with Rice & Veg", cal: 350 }],
+    dinner:    [{ text: "Slow Cooker Chicken Drumsticks with Roasted Veg", cal: 430 }, { text: "Beef Mince & Veggie Stir Fry", cal: 450 }],
+    snack:     [{ text: "Mixed Nuts", cal: 170 }, { text: "Protein Water", cal: 90 }, { text: "Boiled Egg", cal: 80 }, { text: "Rice Cakes with Avocado", cal: 150 }],
+  },
+  Friday: {
+    breakfast: [{ text: "Scrambled Eggs & Baked Beans on Toast", cal: 330 }, { text: "French Toast with Banana", cal: 370 }],
+    lunch:     [{ text: "Tuna Rice Bowl", cal: 350 }, { text: "Chicken Wrap with Avocado", cal: 390 }],
+    dinner:    [{ text: "Beef Stir Fry with Noodles", cal: 430 }, { text: "Baked Chicken Thighs with Mashed Potato", cal: 420 }],
+    snack:     [{ text: "Boiled Egg or Rice Cakes with Avocado", cal: 130 }, { text: "Protein Water", cal: 90 }, { text: "Almonds", cal: 170 }, { text: "Apple", cal: 80 }],
+  },
+  Saturday: {
+    breakfast: [{ text: "French Toast with Banana", cal: 370 }, { text: "Veggie Omelette", cal: 280 }],
+    lunch:     [{ text: "Homemade Baked Chicken Nuggets", cal: 360 }, { text: "Beef Mince Tacos", cal: 410 }],
+    dinner:    [{ text: "Lamb Chops with Mashed Potato & Broccoli", cal: 480 }, { text: "Slow Cooker Beef & Vegetable Stew", cal: 450 }],
+    snack:     [{ text: "Fruit Skewers (Toddler Fave!)", cal: 90 }, { text: "Protein Water", cal: 90 }, { text: "Rice Cakes with Peanut Butter", cal: 130 }, { text: "Mixed Nuts", cal: 170 }],
+  },
+  Sunday: {
+    breakfast: [{ text: "Veggie Omelette", cal: 280 }, { text: "Scrambled Eggs on Toast", cal: 280 }],
+    lunch:     [{ text: "Leftover Protein with Salad", cal: 320 }, { text: "Chicken & Corn Soup", cal: 300 }],
+    dinner:    [{ text: "Beef Mince Pasta (Tomato-Based)", cal: 460 }, { text: "Roast Chicken Breast with Roasted Veg", cal: 390 }],
+    snack:     [{ text: "Rice Cakes with Hummus", cal: 130 }, { text: "Protein Water", cal: 90 }, { text: "Boiled Egg", cal: 80 }, { text: "Apple with Peanut Butter", cal: 200 }],
+  },
+};
+
+// ── RECIPES (default plan meals — breakfast / lunch / dinner per day) ──────────
+const RECIPES = {
+  Monday: {
+    breakfast: { name: "Scrambled Eggs on Toast", cal: 280, serves: "1 adult + toddler",
+      ingredients: ["2 large eggs", "1 tsp butter or olive oil", "1 slice sourdough bread", "1/4 cucumber, sliced", "Salt & pepper to taste"],
+      method: ["Crack eggs into a bowl, whisk with a pinch of salt and pepper.", "Heat butter or oil in a small non-stick pan over low-medium heat.", "Pour in eggs and stir gently until just set — remove from heat slightly early as they keep cooking.", "Toast the sourdough. Serve eggs on toast with cucumber on the side."] },
+    lunch: { name: "Tuna & Rice Salad", cal: 340, serves: "1 adult + toddler",
+      ingredients: ["95g can tuna in springwater, drained", "1/2 cup (90g) steamed white rice, cooled", "1/4 cucumber, diced", "1 tsp olive oil", "Juice of 1/4 lemon", "Salt & pepper to taste"],
+      method: ["Cook rice if not prepared. Allow to cool slightly.", "Drain tuna and break into chunks.", "Combine rice, tuna and cucumber in a bowl.", "Drizzle with olive oil and lemon juice. Season and toss gently."] },
+    dinner: { name: "Baked Chicken Thigh with Rice & Veg", cal: 420, serves: "1 adult + toddler",
+      ingredients: ["2 bone-in chicken thighs (approx 300g)", "1 tsp olive oil", "1/2 tsp garlic powder", "1/2 tsp paprika", "1/2 cup (90g) white rice (dry weight)", "1 cup broccoli florets", "1 medium carrot, sliced", "Salt & pepper"],
+      method: ["Preheat oven to 200C. Pat chicken dry, rub with oil, garlic powder, paprika, salt and pepper.", "Place on a lined baking tray. Bake 35-40 min until skin is golden and juices run clear.", "Cook rice per packet. Steam broccoli and carrot 5-7 min until tender.", "Serve chicken alongside rice and vegetables."] },
+  },
+  Tuesday: {
+    breakfast: { name: "Overnight Oats with Banana", cal: 310, serves: "1 adult",
+      ingredients: ["1/2 cup (45g) rolled oats", "1/2 cup (125ml) oat milk", "1 small banana, sliced", "1 tsp honey", "Pinch of cinnamon (optional)"],
+      method: ["The night before: combine oats and oat milk in a jar or bowl. Stir, cover and refrigerate overnight.", "In the morning, top with sliced banana and drizzle with honey.", "Add cinnamon if using. Eat cold straight from the fridge."] },
+    lunch: { name: "Chicken & Veggie Soup", cal: 300, serves: "2 serves — save one for later",
+      ingredients: ["1 chicken breast or 2 thighs (approx 250g)", "1 medium carrot, diced", "1 small zucchini, diced", "1 cup dry egg noodles or small pasta", "4 cups (1 litre) low-salt chicken broth", "1/2 tsp garlic powder", "Salt & pepper"],
+      method: ["Bring broth to a simmer in a medium pot. Add chicken and cook 15 min.", "Remove chicken, shred with two forks, return to pot.", "Add carrot and zucchini, cook 8 min. Add noodles, cook a further 8-10 min.", "Season and serve. Refrigerate second serve for Thursday's lunch."] },
+    dinner: { name: "Beef Mince Patties with Sweet Potato Mash & Peas", cal: 450, serves: "1 adult + toddler (4 small patties)",
+      ingredients: ["250g lean beef mince", "1 egg", "2 tbsp breadcrumbs", "1/2 tsp garlic powder", "1/2 tsp onion powder", "1 large sweet potato (approx 300g)", "1 tsp butter", "1/2 cup frozen peas", "Salt & pepper"],
+      method: ["Mix mince, egg, breadcrumbs, garlic powder, onion powder, salt and pepper. Shape into 4 small patties.", "Heat a pan over medium-high. Cook patties 4-5 min each side until cooked through.", "Peel and cube sweet potato, boil 12-15 min until soft. Mash with butter and salt.", "Cook peas per packet. Serve patties with mash and peas. Save 2 patties for Wednesday lunch."] },
+  },
+  Wednesday: {
+    breakfast: { name: "Poached Eggs on Toast with Avocado", cal: 300, serves: "1 adult",
+      ingredients: ["2 large eggs", "1 slice sourdough or wholegrain bread", "1/4 ripe avocado", "1 tsp white vinegar (for poaching)", "Salt & pepper"],
+      method: ["Bring a small saucepan of water to a gentle simmer. Add vinegar.", "Create a gentle swirl, crack egg into a cup and slide into water. Cook 3 min for a runny yolk. Repeat.", "Toast bread while eggs poach.", "Mash avocado on toast, top with poached eggs, season."] },
+    lunch: { name: "Beef Patty Wrap", cal: 370, serves: "1 adult + toddler",
+      note: "Use leftover beef patties from Tuesday dinner.",
+      ingredients: ["2 leftover beef patties, sliced", "1 large wholegrain wrap", "2 large iceberg or cos lettuce leaves", "1 tbsp tomato sauce (no added sugar, optional)"],
+      method: ["Warm patties in a pan or microwave until heated through.", "Lay wrap flat, add lettuce leaves, then sliced patties.", "Add sauce if using. Roll up and slice in half."] },
+    dinner: { name: "Baked Chicken Breast with Green Beans & Rice", cal: 390, serves: "1 adult + toddler",
+      ingredients: ["1 large chicken breast (approx 200g)", "1 tsp olive oil", "1/2 tsp paprika", "1/2 tsp garlic powder", "1/2 cup (90g) white rice (dry weight)", "1.5 cups green beans, trimmed", "Salt & pepper"],
+      method: ["Preheat oven to 200C. Rub chicken with oil, paprika, garlic powder, salt and pepper.", "Bake on a lined tray 22-25 min until cooked through.", "Cook rice per packet. Steam or boil green beans 4-5 min.", "Slice chicken and serve with rice and beans."] },
+  },
+  Thursday: {
+    breakfast: { name: "Banana Oat Pancakes", cal: 320, serves: "1 adult + toddler (6 small pancakes)",
+      ingredients: ["1 ripe banana, mashed", "2 large eggs", "1/4 cup (25g) rolled oats", "1/2 tsp vanilla essence (optional)", "Cooking spray or small amount of butter"],
+      method: ["Mash banana well in a bowl. Beat in eggs until combined.", "Stir in oats and vanilla. Rest 2 min.", "Heat a non-stick pan over medium heat, spray lightly.", "Pour small spoonfuls of batter, cook 2-3 min per side until golden. Serve plain or with a small drizzle of honey."] },
+    lunch: { name: "Egg & Salad Sandwich", cal: 290, serves: "1 adult + toddler",
+      ingredients: ["2 hard-boiled eggs, peeled and sliced", "2 slices sourdough bread", "2 large lettuce leaves", "1/4 cucumber, sliced", "1 tsp mayo (optional)", "Salt & pepper"],
+      method: ["Hard boil eggs: place in cold water, bring to boil, cook 9 min, cool in cold water, peel.", "Spread mayo on bread if using.", "Layer lettuce, cucumber and egg slices. Season.", "Top with second slice. Cut into fingers for toddler."] },
+    dinner: { name: "Slow Cooker Chicken Drumsticks with Roasted Veg", cal: 430, serves: "1 adult + toddler",
+      ingredients: ["3 chicken drumsticks (approx 350g)", "1 tsp olive oil", "1 tsp paprika", "1/2 tsp garlic powder", "1/2 tsp onion powder", "1 medium sweet potato, cubed", "2 medium carrots, cut into chunks", "Salt & pepper"],
+      method: ["Rub drumsticks with oil and spices. Place in slow cooker with 2 tbsp water or stock.", "Cook on LOW 5-6 hrs or HIGH 3 hrs.", "With 45 min remaining: toss sweet potato and carrot with olive oil and salt. Roast at 200C until caramelised.", "Serve drumsticks alongside roasted veg."] },
+  },
+  Friday: {
+    breakfast: { name: "Scrambled Eggs & Baked Beans on Toast", cal: 330, serves: "1 adult + toddler",
+      ingredients: ["2 large eggs", "1 tsp butter or olive oil", "1/2 can (210g) baked beans, low-salt", "1 slice sourdough or wholegrain toast", "Salt & pepper"],
+      method: ["Warm baked beans in a small saucepan over low heat.", "Whisk eggs with salt and pepper. Heat butter in a pan, scramble eggs gently over low heat.", "Toast bread.", "Serve eggs and beans together on toast."] },
+    lunch: { name: "Tuna Rice Bowl", cal: 350, serves: "1 adult + toddler",
+      ingredients: ["95g can tuna in springwater, drained", "1/2 cup (90g) steamed white rice", "1/2 cup corn kernels (canned or frozen)", "1 tsp soy sauce (low sodium)", "1/2 tsp sesame oil", "Pinch of sesame seeds (optional)"],
+      method: ["Cook or reheat rice. Warm corn.", "Drain and flake tuna.", "Arrange rice in a bowl, top with tuna and corn.", "Drizzle with soy sauce and sesame oil. Sprinkle sesame seeds if using."] },
+    dinner: { name: "Beef Stir Fry with Noodles", cal: 430, serves: "1 adult + toddler",
+      ingredients: ["200g lean beef strips (stir fry cut)", "80g dry thin egg noodles", "1/2 cup broccoli florets", "1/2 red capsicum, sliced", "1 medium carrot, julienned", "2 tbsp soy sauce (low sodium)", "1 tsp sesame oil", "1 clove garlic, minced", "1 tsp olive oil"],
+      method: ["Cook noodles per packet, drain and toss with a little sesame oil.", "Heat olive oil in a wok or large pan on high. Cook beef strips 2-3 min, set aside.", "Add garlic, capsicum, carrot and broccoli. Stir fry 4-5 min.", "Return beef, add soy sauce. Toss together. Serve over noodles."] },
+  },
+  Saturday: {
+    breakfast: { name: "French Toast with Banana", cal: 370, serves: "1 adult + toddler (2 slices)",
+      ingredients: ["2 thick slices bread", "2 large eggs", "1/4 cup (60ml) oat milk", "1/2 tsp vanilla essence", "1/2 tsp cinnamon", "1 tsp butter", "1 banana, sliced"],
+      method: ["Whisk eggs, oat milk, vanilla and cinnamon in a shallow bowl.", "Dip each bread slice and soak 30 seconds each side.", "Heat butter in a pan over medium heat. Cook bread 2-3 min each side until golden.", "Serve topped with banana slices."] },
+    lunch: { name: "Homemade Baked Chicken Nuggets", cal: 360, serves: "1 adult + toddler (approx 12 nuggets)",
+      ingredients: ["250g chicken breast, cut into bite-size pieces", "1 egg, beaten", "1/2 cup (60g) breadcrumbs", "1/4 tsp garlic powder", "1/4 tsp paprika", "Salt & pepper", "Cooking spray"],
+      method: ["Preheat oven to 200C. Line a baking tray and spray with oil.", "Season breadcrumbs with garlic powder, paprika, salt and pepper.", "Dip chicken pieces in egg, then coat in breadcrumbs.", "Place on tray, spray tops lightly. Bake 18-20 min, turning halfway, until golden and cooked through."] },
+    dinner: { name: "Lamb Chops with Mashed Potato & Broccoli", cal: 480, serves: "1 adult + toddler (2 chops)",
+      ingredients: ["2 lamb loin chops (approx 300g)", "1 tsp olive oil", "1 clove garlic, minced", "1/2 tsp dried rosemary", "2 medium potatoes, peeled and cubed", "1 tsp butter", "1 cup broccoli florets", "Salt & pepper"],
+      method: ["Rub chops with olive oil, garlic, rosemary, salt and pepper. Rest 10 min.", "Boil potatoes 12-15 min until soft. Drain and mash with butter and salt.", "Steam broccoli 5 min.", "Heat a grill or frying pan on high. Cook chops 3-4 min each side for medium. Serve with mash and broccoli."] },
+  },
+  Sunday: {
+    breakfast: { name: "Veggie Omelette", cal: 280, serves: "1 adult + toddler",
+      ingredients: ["2 large eggs", "2 tbsp oat milk or water", "1/2 cup baby spinach", "1/4 capsicum, diced", "1 tbsp grated tasty cheese", "1 tsp olive oil", "Salt & pepper"],
+      method: ["Whisk eggs with oat milk, salt and pepper.", "Heat oil in a non-stick pan over medium heat. Add capsicum, cook 2 min.", "Pour in egg mixture. Cook until edges set, about 2 min.", "Add spinach and cheese to one half. Fold over, cook 1 more min. Cut into pieces for toddler."] },
+    lunch: { name: "Leftover Protein with Salad", cal: 320, serves: "1 adult + toddler",
+      note: "Use leftover lamb, chicken or beef from the week.",
+      ingredients: ["150-200g leftover cooked protein", "2 large lettuce leaves, torn", "1/4 cucumber, sliced", "1/4 avocado, sliced", "1 tsp olive oil", "Squeeze of lemon", "Salt & pepper"],
+      method: ["Slice or shred leftover protein and warm if preferred.", "Arrange lettuce, cucumber and avocado in a bowl.", "Top with protein, drizzle with olive oil and lemon, season."] },
+    dinner: { name: "Beef Mince Pasta", cal: 460, serves: "2 serves — save one for later",
+      ingredients: ["250g lean beef mince", "1 can (400g) crushed tomatoes", "1 medium carrot, finely diced", "1/2 brown onion, diced", "2 cloves garlic, minced", "1 tsp olive oil", "1/2 tsp dried oregano", "1/2 tsp dried basil", "150g dry pasta", "Salt & pepper"],
+      method: ["Heat oil in a pan over medium heat. Cook onion 3 min, add garlic 1 min.", "Add mince, cook until browned, breaking up lumps. Drain excess fat.", "Add carrot, crushed tomatoes, oregano, basil, salt and pepper.", "Simmer on low 20 min until sauce thickens. Cook pasta per packet. Serve sauce over pasta."] },
+  },
+};
+
+// ── GROCERY LIST (weekly, based on default recipe selections) ──────────────────
+const GROCERIES = [
+  { cat: "Meat & Protein", items: ["Chicken thighs, bone-in — x4 (approx 600g)","Chicken breast — x2 large (approx 500g)","Chicken drumsticks — x3 (approx 350g)","Lean beef mince — 500g","Lean beef strips (stir fry cut) — 200g","Lamb loin chops — x2 (approx 300g)","Canned tuna in springwater — x2 (95g cans)"] },
+  { cat: "Eggs & Dairy Alternatives", items: ["Eggs — x12 (1 dozen)","Oat milk — 1 litre","Butter — small block","Tasty cheese — small block (minimal use)","Olive oil — if not already stocked"] },
+  { cat: "Fresh Vegetables", items: ["Broccoli — 1 head","Carrots — 6 medium","Zucchini — 1 medium","Cucumber — 2 medium","Red or green capsicum — 2","Baby spinach — 1 bag (120g)","Iceberg or cos lettuce — 1 head","Brown onion — 1","Garlic — 1 bulb","Avocado — 2 ripe","Potatoes — 3 medium","Sweet potato — 3 large","Green beans — approx 200g"] },
+  { cat: "Fresh Fruit", items: ["Bananas — x4","Apples — x2","Lemon — x1","Strawberries — 1 punnet (toddler snack)","Grapes — small bunch (toddler snack)"] },
+  { cat: "Pantry & Dry Goods", items: ["Rolled oats — 500g","White rice — 1kg bag","Sourdough or wholegrain bread — 1 loaf","Wholegrain wraps — pack of 4","Thin egg noodles — 1 packet","Pasta (any shape) — 500g","Breadcrumbs — 1 packet","Baked beans, low-salt — 1 x 420g can","Crushed tomatoes — 1 x 400g can","Corn kernels, canned — 1 x 420g can","Chicken stock/broth, low-salt — 1 litre","Hummus — small tub","Rice cakes — 1 packet","Mixed nuts — small bag","Almonds — small bag","Cashews — small bag","Peanut butter — 1 jar","Almond butter — 1 jar","Honey — small jar"] },
+  { cat: "Condiments & Fridge", items: ["Soy sauce, low sodium — 1 bottle","Sesame oil — small bottle","Tomato sauce, no added sugar — 1 bottle","White vinegar — small bottle (for poaching eggs)","Mayonnaise — small jar (optional)","Sesame seeds — small packet (optional)"] },
+  { cat: "Frozen", items: ["Frozen peas — 500g bag","Frozen corn — 500g bag (or use canned)"] },
+  { cat: "Supplements (if running low)", items: ["Protein water — weekly supply","Daily greens powder","Creatine monohydrate","Chia seeds"] },
+];
+
+const DAYS   = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const SLOTS  = ["breakfast","lunch","dinner","snack"];
+const MEAL_SLOTS = ["breakfast","lunch","dinner"]; // slots that have recipes
+const ICONS  = { breakfast: "☀", lunch: "◐", dinner: "●", snack: "◇" };
+const LABELS = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" };
+const TARGET = 1400;
+const DEFAULT_START_WEIGHT = 73.9;
+
+const DEFAULT_MEASURES = [
+  { key: "waist",   label: "Waist" },
+  { key: "hips",    label: "Hips" },
+  { key: "bust",    label: "Bust / Chest" },
+  { key: "thigh",   label: "Thigh" },
+  { key: "arm",     label: "Upper arm" },
+];
+
+// ── localStorage HELPERS ──────────────────────────────────────────────────────
+const ls = {
+  get: (key) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } },
+  set: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} },
+  keys: (prefix) => { try { return Object.keys(localStorage).filter(k => k.startsWith(prefix)).sort().reverse(); } catch { return []; } }
+};
+
+function slug(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40); }
+
+function getWeekKey(offset = 0) {
+  const now = new Date();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - ((now.getDay() + 6) % 7) + offset * 7);
+  return "week-" + mon.toISOString().slice(0, 10);
+}
+
+function getWeekLabel(offset) {
+  if (offset === 0)  return "This Week";
+  if (offset === -1) return "Last Week";
+  if (offset === -2) return "2 Weeks Ago";
+  return Math.abs(offset) + " Weeks Ago";
+}
+
+function defaultWeekData() {
+  const d = {};
+  DAYS.forEach(day => {
+    d[day] = {};
+    SLOTS.forEach(slot => { d[day][slot] = { selectedIdx: 0, override: null, logged: false }; });
+  });
+  return d;
+}
+
+function defaultGoals() {
+  const m = {};
+  DEFAULT_MEASURES.forEach(({key, label}) => { m[key] = { label, start: null, log: [] }; });
+  return { startWeight: DEFAULT_START_WEIGHT, goalWeight: null, measures: m };
+}
+
+function calColor(c) {
+  if (c < 1000) return C.blue;
+  if (c <= TARGET) return C.green;
+  if (c <= 1600)   return C.amber;
+  return C.red;
+}
+
+// ── STYLES ────────────────────────────────────────────────────────────────────
+const S = {
+  app:    { minHeight: "100vh", background: C.bg, color: C.text, paddingBottom: 60 },
+  hdr:    { background: "linear-gradient(135deg,#1b1330 0%,#121726 100%)", borderBottom: `1px solid ${C.border}`, padding: "env(safe-area-inset-top, 16px) 20px 20px" },
+  card:   { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 16px", marginBottom: 10 },
+  input:  { background: C.cardAlt, border: `1px solid ${C.borderMid}`, color: C.text, borderRadius: 8, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", width: "100%", boxSizing: "border-box" },
+  pill:   (on) => ({ padding: "6px 14px", borderRadius: 20, border: "1px solid", cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: on ? "#a78bfa26" : "transparent", borderColor: on ? C.accent : C.borderMid, color: on ? C.accentTxt : C.text3 }),
+  btn:    (v="ghost") => ({ ghost: { background:"transparent", border:`1px solid ${C.borderMid}`, color:C.text2, borderRadius:8, padding:"5px 12px", fontSize:12 }, primary: { background:C.accent, border:"none", color:"#1a0f33", borderRadius:8, padding:"8px 18px", fontSize:13, fontWeight:800 }, danger: { background:"transparent", border:`1px solid #7f3b3b`, color:C.red, borderRadius:8, padding:"5px 10px", fontSize:11 } })[v],
+  calBadge: (cal, hi) => ({ fontSize:11, fontWeight:800, color: hi?C.amber:C.accentTxt, background: hi?"#2a1f0066":"#23193f", border:`1px solid ${hi?"#7a520066":C.borderMid}`, borderRadius:20, padding:"2px 10px", whiteSpace:"nowrap" }),
+  tag:    (color) => ({ fontSize:10.5, fontWeight:800, letterSpacing:2, textTransform:"uppercase", color }),
+  eyebrow:{ fontSize:11, color:C.text3, letterSpacing:2, textTransform:"uppercase", marginBottom:8, fontWeight:700 },
+};
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+function App() {
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const [weekOffset, setWeekOffset]   = useState(0);
+  const [weekData,   setWeekData]     = useState(() => ls.get(getWeekKey(0)) || defaultWeekData());
+  const [weightLog,  setWeightLog]    = useState(() => ls.get("weight-log") || []);
+  const [goals,      setGoals]        = useState(() => ({ ...defaultGoals(), ...(ls.get("goals") || {}) }));
+  const [shopState,  setShopState]    = useState(() => ls.get("shop-" + getWeekKey(0)) || {});
+  const [activeDay,  setActiveDay]    = useState(DAYS[todayIdx]);
+  const [dayView,    setDayView]      = useState("diary"); // diary | recipes
+  const [view,       setView]         = useState("tracker");
+  const [editSlot,   setEditSlot]     = useState(null);
+  const [overInput,  setOverInput]    = useState({ text:"", cal:"" });
+  const [showOpts,   setShowOpts]     = useState(null);
+  const [wtInput,    setWtInput]      = useState("");
+  const [wtNote,     setWtNote]       = useState("");
+  const [startWtIn,  setStartWtIn]    = useState(String(goals.startWeight ?? DEFAULT_START_WEIGHT));
+  const [goalWtIn,   setGoalWtIn]     = useState(goals.goalWeight != null ? String(goals.goalWeight) : "");
+  const [mInput,     setMInput]       = useState({}); // { key: value } for new measurement reading
+  const [mStartIn,   setMStartIn]     = useState({}); // { key: start value }
+  const [openMeas,   setOpenMeas]     = useState(null); // expanded measurement history
+
+  // Reload when week changes
+  useEffect(() => {
+    setWeekData(ls.get(getWeekKey(weekOffset)) || defaultWeekData());
+    setShopState(ls.get("shop-" + getWeekKey(weekOffset)) || {});
+    setEditSlot(null); setShowOpts(null);
+  }, [weekOffset]);
+
+  function saveWeek(data) { ls.set(getWeekKey(weekOffset), data); }
+  function saveGoals(g) { setGoals(g); ls.set("goals", g); }
+  function saveShop(s) { setShopState(s); ls.set("shop-" + getWeekKey(weekOffset), s); }
+
+  function updateSlot(day, slot, patch) {
+    const next = { ...weekData, [day]: { ...weekData[day], [slot]: { ...weekData[day][slot], ...patch } } };
+    setWeekData(next); saveWeek(next);
+  }
+
+  function applyOverride(day, slot) {
+    const cal = parseInt(overInput.cal);
+    if (!overInput.text.trim() || isNaN(cal) || cal < 0) return;
+    updateSlot(day, slot, { override: { text: overInput.text.trim(), cal }, logged: true });
+    setEditSlot(null); setOverInput({ text:"", cal:"" });
+  }
+
+  function clearOverride(day, slot) { updateSlot(day, slot, { override: null }); }
+  function selectPlan(day, slot, idx) { updateSlot(day, slot, { selectedIdx: idx, override: null, logged: true }); setShowOpts(null); }
+  function toggleLogged(day, slot)   { updateSlot(day, slot, { logged: !weekData[day][slot].logged }); }
+
+  function addWeight() {
+    const kg = parseFloat(wtInput);
+    if (isNaN(kg) || kg < 30 || kg > 300) return;
+    const next = [{ date: new Date().toISOString(), kg, note: wtNote.trim() }, ...weightLog].slice(0, 104);
+    setWeightLog(next); ls.set("weight-log", next);
+    setWtInput(""); setWtNote("");
+  }
+
+  function deleteWeight(i) {
+    const next = weightLog.filter((_,j) => j !== i);
+    setWeightLog(next); ls.set("weight-log", next);
+  }
+
+  // Goals
+  function saveStartWeight() {
+    const v = parseFloat(startWtIn);
+    if (isNaN(v) || v < 30 || v > 300) return;
+    saveGoals({ ...goals, startWeight: v });
+  }
+  function saveGoalWeight() {
+    if (goalWtIn.trim() === "") { saveGoals({ ...goals, goalWeight: null }); return; }
+    const v = parseFloat(goalWtIn);
+    if (isNaN(v) || v < 30 || v > 300) return;
+    saveGoals({ ...goals, goalWeight: v });
+  }
+  function saveMeasureStart(key) {
+    const raw = mStartIn[key];
+    const v = parseFloat(raw);
+    const meas = { ...goals.measures };
+    meas[key] = { ...meas[key], start: (raw === "" || isNaN(v)) ? null : v };
+    saveGoals({ ...goals, measures: meas });
+  }
+  function addMeasureReading(key) {
+    const v = parseFloat(mInput[key]);
+    if (isNaN(v) || v <= 0 || v > 400) return;
+    const meas = { ...goals.measures };
+    const log = [{ date: new Date().toISOString(), val: v }, ...(meas[key].log || [])].slice(0, 104);
+    meas[key] = { ...meas[key], log };
+    saveGoals({ ...goals, measures: meas });
+    setMInput(p => ({ ...p, [key]: "" }));
+  }
+  function deleteMeasureReading(key, i) {
+    const meas = { ...goals.measures };
+    meas[key] = { ...meas[key], log: meas[key].log.filter((_,j)=>j!==i) };
+    saveGoals({ ...goals, measures: meas });
+  }
+
+  // Shopping
+  function toggleShop(id) { const next = { ...shopState, [id]: !shopState[id] }; saveShop(next); }
+  function resetShop() { saveShop({}); }
+
+  // Computed
+  function getSlot(day, slot) {
+    const s = weekData[day]?.[slot] || { selectedIdx:0, override:null, logged:false };
+    const plan = PLAN[day][slot];
+    const selected = plan[s.selectedIdx] || plan[0];
+    const active = s.override || selected;
+    return { ...s, plan, selected, active };
+  }
+
+  function dayCals(day, loggedOnly) {
+    return SLOTS.reduce((sum, slot) => {
+      const { active, logged } = getSlot(day, slot);
+      return sum + (loggedOnly ? (logged ? active.cal : 0) : active.cal);
+    }, 0);
+  }
+
+  function fmtDate(iso) { return new Date(iso).toLocaleDateString("en-AU", { day:"numeric", month:"short", year:"numeric" }); }
+  function fmtKg(kg) { return kg.toFixed(1) + " kg"; }
+
+  const startWeight = goals.startWeight ?? DEFAULT_START_WEIGHT;
+  const latest = weightLog[0];
+  const delta  = latest ? (latest.kg - startWeight).toFixed(1) : null;
+
+  // Shopping progress
+  const allShopItems = GROCERIES.reduce((a, g) => a + g.items.length, 0);
+  const checkedCount = GROCERIES.reduce((a, g) => a + g.items.filter(it => shopState[slug(g.cat + it)]).length, 0);
+
+  // ── RENDER ─────────────────────────────────────────────────────────────────
+  return (
+    <div style={S.app}>
+      {/* HEADER */}
+      <div style={S.hdr}>
+        <div style={{ maxWidth:680, margin:"0 auto" }}>
+          <div style={{ fontSize:10, letterSpacing:5, color:C.text3, textTransform:"uppercase", marginBottom:6, fontWeight:700 }}>Alida's Tracker</div>
+          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
+            <div>
+              <h1 style={{ fontSize:22, fontWeight:800, color:"#f6f3ff", lineHeight:1.2 }}>
+                Meal &amp; Body<br/><span style={{ color:C.accentTxt }}>Tracker</span>
+              </h1>
+              <p style={{ fontSize:11.5, color:C.text3, marginTop:4 }}>High-protein · Mounjaro-adapted · {getWeekKey(weekOffset).replace("week-","")}</p>
+            </div>
+            {latest && (
+              <div style={{ textAlign:"right", flexShrink:0 }}>
+                <div style={{ fontSize:22, fontWeight:800, color:"#f6f3ff" }}>{fmtKg(latest.kg)}</div>
+                <div style={{ fontSize:11.5, color: delta <= 0 ? C.greenTxt : C.red }}>{delta > 0 ? "+":""}{delta} kg from start</div>
+              </div>
+            )}
+          </div>
+          <div style={{ display:"flex", gap:8, marginTop:14, flexWrap:"wrap" }}>
+            {[["goals","🎯 Goals"],["tracker","📋 Tracker"],["shopping","🛒 Shopping"],["weight","⚖️ Weight"],["history","📊 History"]].map(([v,lbl]) => (
+              <button key={v} onClick={() => setView(v)} style={S.pill(view===v)}>{lbl}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth:680, margin:"0 auto", padding:"0 16px" }}>
+
+        {/* ── GOALS ───────────────────────────────────────────────────────── */}
+        {view === "goals" && (
+          <div style={{ marginTop:20 }} className="fade-in">
+            {/* Weight goal */}
+            <div style={{ ...S.card, marginBottom:16 }}>
+              <div style={S.eyebrow}>Weight Goal</div>
+              {(() => {
+                const cur = latest ? latest.kg : startWeight;
+                const goal = goals.goalWeight;
+                let pct = 0, toGo = null;
+                if (goal != null && startWeight !== goal) {
+                  pct = Math.max(0, Math.min(100, ((startWeight - cur) / (startWeight - goal)) * 100));
+                  toGo = (cur - goal).toFixed(1);
+                }
+                return (
+                  <div>
+                    <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom: goal!=null?14:4 }}>
+                      {[["Start", startWeight.toFixed(1)+" kg", C.text3],["Current", fmtKg(cur), C.accentTxt],["Goal", goal!=null ? goal.toFixed(1)+" kg" : "—", C.blue]].map(([l,v,col]) => (
+                        <div key={l} style={{ flex:"1 1 90px" }}>
+                          <div style={{ fontSize:10, color:C.faint, textTransform:"uppercase", letterSpacing:2 }}>{l}</div>
+                          <div style={{ fontSize:18, fontWeight:800, color:col, marginTop:2 }}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {goal != null && (
+                      <div>
+                        <div style={{ background:C.borderSub, borderRadius:99, height:8, overflow:"hidden" }}>
+                          <div style={{ width:`${pct}%`, height:"100%", background:`linear-gradient(90deg,${C.accent},${C.blue})`, borderRadius:99, transition:"width 0.4s" }}/>
+                        </div>
+                        <div style={{ fontSize:12, color:C.text2, marginTop:6 }}>
+                          {Number(toGo) <= 0 ? "🎉 Goal reached — amazing work!" : `${pct.toFixed(0)}% there · ${toGo} kg to go`}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${C.borderSub}`, display:"flex", gap:10, flexWrap:"wrap" }}>
+                <div style={{ flex:"1 1 130px" }}>
+                  <label style={{ fontSize:11, color:C.text3, display:"block", marginBottom:5 }}>Starting weight</label>
+                  <div style={{ display:"flex", gap:6 }}>
+                    <input style={{ ...S.input }} type="number" step="0.1" value={startWtIn} onChange={e=>setStartWtIn(e.target.value)} onBlur={saveStartWeight}/>
+                  </div>
+                </div>
+                <div style={{ flex:"1 1 130px" }}>
+                  <label style={{ fontSize:11, color:C.text3, display:"block", marginBottom:5 }}>Goal weight</label>
+                  <input style={{ ...S.input }} type="number" step="0.1" placeholder="optional" value={goalWtIn} onChange={e=>setGoalWtIn(e.target.value)} onBlur={saveGoalWeight}/>
+                </div>
+              </div>
+              <div style={{ fontSize:11, color:C.faint, marginTop:8 }}>Log actual weigh-ins in the Weight tab — your latest shows as "Current" here.</div>
+            </div>
+
+            {/* Measurements */}
+            <div style={S.eyebrow}>Body Measurements</div>
+            <div style={{ ...S.card, marginBottom:12, borderColor:"#2c4a5e", background:"#13202a" }}>
+              <p style={{ fontSize:12.5, color:C.text2, lineHeight:1.6 }}>Set your starting measurement once, then log new readings as you go. The scale can stall while your shape still changes — measurements catch what the scale misses, especially with strength training.</p>
+            </div>
+            {DEFAULT_MEASURES.map(({key, label}) => {
+              const m = goals.measures[key] || { label, start:null, log:[] };
+              const latestR = m.log[0];
+              const startV = m.start;
+              const changed = (latestR && startV != null) ? (latestR.val - startV) : null;
+              const isOpen = openMeas === key;
+              const startVal = mStartIn[key] !== undefined ? mStartIn[key] : (startV != null ? String(startV) : "");
+              return (
+                <div key={key} style={{ ...S.card }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+                    <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{label}</div>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontSize:20, fontWeight:800, color:C.accentTxt }}>{latestR ? latestR.val + " cm" : (startV != null ? startV + " cm" : "—")}</div>
+                      {changed != null && (
+                        <div style={{ fontSize:11.5, color: changed < 0 ? C.greenTxt : changed > 0 ? C.amber : C.text3 }}>
+                          {changed > 0 ? "▲ +" : changed < 0 ? "▼ " : ""}{changed === 0 ? "no change" : Math.abs(changed).toFixed(1) + " cm since start"}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display:"flex", gap:8, marginTop:12, flexWrap:"wrap", alignItems:"flex-end" }}>
+                    <div style={{ flex:"1 1 90px" }}>
+                      <label style={{ fontSize:10.5, color:C.text3, display:"block", marginBottom:4 }}>Start (cm)</label>
+                      <input style={S.input} type="number" step="0.1" placeholder="—" value={startVal}
+                        onChange={e=>setMStartIn(p=>({...p,[key]:e.target.value}))} onBlur={()=>saveMeasureStart(key)}/>
+                    </div>
+                    <div style={{ flex:"1 1 90px" }}>
+                      <label style={{ fontSize:10.5, color:C.text3, display:"block", marginBottom:4 }}>New reading (cm)</label>
+                      <input style={S.input} type="number" step="0.1" placeholder="log now" value={mInput[key] || ""}
+                        onChange={e=>setMInput(p=>({...p,[key]:e.target.value}))}/>
+                    </div>
+                    <button onClick={()=>addMeasureReading(key)} style={{ ...S.btn("primary"), padding:"9px 14px" }}>Log</button>
+                  </div>
+
+                  {m.log.length > 0 && (
+                    <button onClick={()=>setOpenMeas(isOpen?null:key)} style={{ ...S.btn("ghost"), marginTop:10, fontSize:11.5 }}>
+                      {isOpen ? "Hide history" : `History (${m.log.length})`}
+                    </button>
+                  )}
+                  {isOpen && (
+                    <div style={{ marginTop:8, borderTop:`1px solid ${C.borderSub}`, paddingTop:8 }}>
+                      {m.log.map((e,i) => (
+                        <div key={i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"5px 0", borderBottom: i<m.log.length-1?`1px solid ${C.borderSub}`:"none" }}>
+                          <span style={{ fontSize:12.5, color:C.text2 }}>{fmtDate(e.date)}</span>
+                          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                            <span style={{ fontSize:13.5, fontWeight:700, color:C.accentTxt }}>{e.val} cm</span>
+                            <button onClick={()=>deleteMeasureReading(key,i)} style={S.btn("danger")}>✕</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── TRACKER ─────────────────────────────────────────────────────── */}
+        {view === "tracker" && (
+          <div style={{ marginTop:20 }}>
+            {/* Week nav */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+              <button onClick={() => setWeekOffset(w => w-1)} style={S.btn("ghost")}>← Prev</button>
+              <span style={{ fontSize:13, color:C.accentTxt, fontWeight:700 }}>{getWeekLabel(weekOffset)}</span>
+              <button onClick={() => setWeekOffset(w => Math.min(0,w+1))} style={{ ...S.btn("ghost"), opacity: weekOffset>=0?0.4:1 }} disabled={weekOffset>=0}>Next →</button>
+            </div>
+
+            {/* Day pills */}
+            <div style={{ overflowX:"auto", paddingBottom:4, marginBottom:14 }}>
+              <div style={{ display:"flex", gap:6, width:"max-content" }}>
+                {DAYS.map((day,i) => {
+                  const logged  = dayCals(day, true);
+                  const planned = dayCals(day, false);
+                  const hasLog  = SLOTS.some(s => weekData[day]?.[s]?.logged);
+                  const isToday = i === todayIdx && weekOffset === 0;
+                  return (
+                    <button key={day} onClick={() => setActiveDay(day)} style={{
+                      padding:"8px 12px", borderRadius:12, border:"1px solid", cursor:"pointer", textAlign:"center", minWidth:58,
+                      borderColor: activeDay===day ? C.accent : isToday ? "#5a4a86" : C.border,
+                      background:  activeDay===day ? "#a78bfa26" : C.card,
+                      color:       activeDay===day ? C.accentTxt : C.text3,
+                    }}>
+                      <div style={{ fontSize:12.5, fontWeight:700 }}>{day.slice(0,3)}</div>
+                      {isToday && <div style={{ fontSize:9, color:C.text3, marginTop:1 }}>today</div>}
+                      <div style={{ fontSize:10, marginTop:2, color: hasLog ? calColor(logged):C.faint }}>
+                        {hasLog ? logged : planned}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Diary / Recipes toggle */}
+            <div style={{ display:"flex", gap:6, marginBottom:16, background:C.cardAlt, padding:4, borderRadius:12, border:`1px solid ${C.border}` }}>
+              {[["diary","🍽 Food Diary"],["recipes","📖 Recipes"]].map(([v,lbl]) => (
+                <button key={v} onClick={()=>setDayView(v)} style={{
+                  flex:1, padding:"9px 0", borderRadius:9, border:"none", fontSize:13, fontWeight:700,
+                  background: dayView===v ? C.accent : "transparent",
+                  color: dayView===v ? "#1a0f33" : C.text2,
+                }}>{lbl}</button>
+              ))}
+            </div>
+
+            {/* DIARY MODE */}
+            {dayView === "diary" && (<>
+              {/* Calorie bar */}
+              {(() => {
+                const logged  = dayCals(activeDay, true);
+                const planned = dayCals(activeDay, false);
+                const hasLog  = SLOTS.some(s => weekData[activeDay]?.[s]?.logged);
+                const display = hasLog ? logged : planned;
+                const pct   = Math.min((display / TARGET) * 100, 100);
+                const color = calColor(display);
+                return (
+                  <div style={{ ...S.card, marginBottom:14 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:8 }}>
+                      <span style={{ fontSize:11, color:C.text3, textTransform:"uppercase", letterSpacing:2, fontWeight:700 }}>
+                        {activeDay} {hasLog ? "— logged":"— planned"}
+                      </span>
+                      <div>
+                        <span style={{ fontSize:22, fontWeight:800, color }}>{display}</span>
+                        <span style={{ fontSize:12, color:C.faint, marginLeft:4 }}>/ {TARGET} kcal</span>
+                      </div>
+                    </div>
+                    <div style={{ background:C.borderSub, borderRadius:99, height:6 }}>
+                      <div style={{ width:`${pct}%`, height:"100%", background:color, borderRadius:99, transition:"width 0.4s" }} />
+                    </div>
+                    <div style={{ fontSize:11.5, color, marginTop:5 }}>
+                      {display < 1000 ? "Low — try to eat a bit more" : display <= TARGET ? "On target ✓" : display <= 1600 ? "Slightly over" : "Over target"}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Meal slots */}
+              {SLOTS.map(slot => {
+                const { selectedIdx, override, active, logged, plan } = getSlot(activeDay, slot);
+                const isEditing  = editSlot?.day===activeDay && editSlot?.slot===slot;
+                const isShowOpts = showOpts === slot;
+
+                return (
+                  <div key={slot} className="fade-in" style={{ background: override?C.cardWarm:C.card, border:`1px solid ${override?"#a78bfa55":C.border}`, borderRadius:14, marginBottom:10, overflow:"hidden" }}>
+                    <div style={{ padding:"12px 14px", display:"flex", alignItems:"flex-start", gap:10 }}>
+                      {/* Log circle */}
+                      <button onClick={() => toggleLogged(activeDay, slot)} style={{ width:26, height:26, borderRadius:"50%", border:`2px solid ${logged?C.accent:C.borderMid}`, background: logged?C.accent:"transparent", flexShrink:0, marginTop:2, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:"#1a0f33", fontWeight:800 }}>
+                        {logged ? "✓" : ""}
+                      </button>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                          <span style={S.tag(C.text3)}>{ICONS[slot]} {LABELS[slot]}</span>
+                          {override && <span style={{ fontSize:10, color:C.amber, background:"#2a1f0055", border:"1px solid #7a520055", borderRadius:10, padding:"1px 7px", fontWeight:700 }}>custom</span>}
+                        </div>
+                        <div style={{ fontSize:14.5, color: override?C.amber:C.text, lineHeight:1.4 }}>{active.text}</div>
+                        {override && (
+                          <button onClick={() => clearOverride(activeDay, slot)} style={{ ...S.btn("danger"), marginTop:4, fontSize:10, padding:"2px 8px" }}>✕ clear custom</button>
+                        )}
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, flexShrink:0 }}>
+                        <span style={S.calBadge(active.cal, !!override)}>{active.cal} kcal</span>
+                        <div style={{ display:"flex", gap:4 }}>
+                          <button onClick={() => { setShowOpts(isShowOpts?null:slot); setEditSlot(null); }} style={S.btn("ghost")}>
+                            {isShowOpts ? "Close" : "Swap"}
+                          </button>
+                          <button onClick={() => {
+                            setEditSlot(isEditing ? null : { day:activeDay, slot });
+                            setOverInput(override ? { text:override.text, cal:String(override.cal) } : { text:"", cal:"" });
+                            setShowOpts(null);
+                          }} style={{ ...S.btn("ghost"), color:C.amber, borderColor:"#7a520088" }}>Edit</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Options drawer */}
+                    {isShowOpts && (
+                      <div style={{ borderTop:`1px solid ${C.border}`, background:C.cardAlt }}>
+                        <div style={{ padding:"6px 14px 4px", fontSize:10, color:C.faint, letterSpacing:2, textTransform:"uppercase", fontWeight:700 }}>Select a plan option</div>
+                        {plan.map((opt, idx) => {
+                          const sel = idx===selectedIdx && !override;
+                          return (
+                            <div key={idx} onClick={() => selectPlan(activeDay, slot, idx)} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, padding:"10px 14px", cursor:"pointer", borderBottom: idx<plan.length-1?`1px solid ${C.borderSub}`:"none", background: sel?"#231a3f":"transparent" }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:10, flex:1 }}>
+                                <div style={{ width:16, height:16, borderRadius:"50%", border:`2px solid ${sel?C.accent:C.borderMid}`, background: sel?C.accent:"transparent", flexShrink:0 }} />
+                                <span style={{ fontSize:13.5, color: sel?C.text:C.text2 }}>{opt.text}</span>
+                              </div>
+                              <span style={S.calBadge(opt.cal, sel)}>{opt.cal} kcal</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Edit / override drawer */}
+                    {isEditing && (
+                      <div style={{ borderTop:`1px solid ${C.borderMid}`, padding:"12px 14px", background:C.cardAlt }}>
+                        <div style={{ fontSize:10, color:C.amber, letterSpacing:2, textTransform:"uppercase", marginBottom:8, fontWeight:700 }}>◇ Enter what you actually ate</div>
+                        <input style={{ ...S.input, marginBottom:8 }} placeholder="e.g. Chicken burger and chips from café" value={overInput.text} onChange={e => setOverInput(p=>({...p,text:e.target.value}))} />
+                        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                          <input style={{ ...S.input, width:110 }} type="number" placeholder="Calories" min="0" max="3000" value={overInput.cal} onChange={e => setOverInput(p=>({...p,cal:e.target.value}))} />
+                          <span style={{ fontSize:12, color:C.text3 }}>kcal</span>
+                          <button onClick={() => applyOverride(activeDay, slot)} style={{ ...S.btn("primary"), marginLeft:"auto" }}>Save</button>
+                          <button onClick={() => setEditSlot(null)} style={S.btn("ghost")}>Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              <div style={{ ...S.card, borderColor:"#2c5a3c", background:"#10211688", marginTop:4 }}>
+                <div style={{ fontSize:10, color:C.greenTxt, letterSpacing:2, textTransform:"uppercase", marginBottom:4, fontWeight:700 }}>Daily reminder</div>
+                <p style={{ fontSize:12.5, color:C.greenTxt, lineHeight:1.6 }}>Tap the circle to mark a meal as eaten. Tap Edit to log what you actually had. Morning stack: chia + greens + creatine. Protein first. Stop at 80% full.</p>
+              </div>
+            </>)}
+
+            {/* RECIPES MODE */}
+            {dayView === "recipes" && (
+              <div className="fade-in">
+                <div style={{ ...S.card, marginBottom:12, borderColor:"#3a3060", background:C.cardWarm }}>
+                  <p style={{ fontSize:12.5, color:C.text2, lineHeight:1.6 }}>Recipes for <strong style={{color:C.text}}>{activeDay}</strong>'s main plan. Each serves 1 adult + toddler unless noted. Ingredient amounts are listed in full. For the full week's shopping, tap the 🛒 Shopping tab up top.</p>
+                </div>
+                {MEAL_SLOTS.map(slot => {
+                  const r = RECIPES[activeDay][slot];
+                  if (!r) return null;
+                  return (
+                    <div key={slot} className="fade-in" style={{ ...S.card, padding:0, overflow:"hidden" }}>
+                      <div style={{ padding:"14px 16px 12px", borderBottom:`1px solid ${C.borderSub}`, background:"linear-gradient(135deg,#1f1734,#1a1729)" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+                          <div>
+                            <span style={S.tag(C.text3)}>{ICONS[slot]} {LABELS[slot]}</span>
+                            <div style={{ fontSize:16.5, fontWeight:800, color:C.text, marginTop:5, lineHeight:1.25 }}>{r.name}</div>
+                            <div style={{ fontSize:11.5, color:C.text3, marginTop:3 }}>Serves: {r.serves}</div>
+                          </div>
+                          <span style={S.calBadge(r.cal, false)}>{r.cal} kcal</span>
+                        </div>
+                        {r.note && <div style={{ fontSize:11.5, color:C.amber, marginTop:8, background:"#2a1f0044", border:"1px solid #7a520044", borderRadius:8, padding:"6px 10px" }}>💡 {r.note}</div>}
+                      </div>
+                      <div style={{ padding:"12px 16px" }}>
+                        <div style={{ fontSize:10.5, color:C.accentTxt, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:8 }}>Ingredients</div>
+                        <ul style={{ listStyle:"none", marginBottom:14 }}>
+                          {r.ingredients.map((ing,i) => (
+                            <li key={i} style={{ fontSize:13.5, color:C.text2, lineHeight:1.5, padding:"3px 0 3px 16px", position:"relative" }}>
+                              <span style={{ position:"absolute", left:0, top:"3px", color:C.accent }}>•</span>{ing}
+                            </li>
+                          ))}
+                        </ul>
+                        <div style={{ fontSize:10.5, color:C.accentTxt, letterSpacing:2, textTransform:"uppercase", fontWeight:700, marginBottom:8 }}>Method</div>
+                        <ol style={{ listStyle:"none", counterReset:"step" }}>
+                          {r.method.map((step,i) => (
+                            <li key={i} style={{ fontSize:13.5, color:C.text2, lineHeight:1.55, padding:"5px 0 5px 28px", position:"relative" }}>
+                              <span style={{ position:"absolute", left:0, top:"4px", width:19, height:19, borderRadius:"50%", background:C.accent, color:"#1a0f33", fontSize:11, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center" }}>{i+1}</span>
+                              {step}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{ ...S.card, borderColor:"#2c5a3c", background:"#10211688", marginTop:4 }}>
+                  <p style={{ fontSize:12.5, color:C.greenTxt, lineHeight:1.6 }}>Snacks are kept simple (no recipe needed) — see the Food Diary tab to pick and log them.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── SHOPPING ────────────────────────────────────────────────────── */}
+        {view === "shopping" && (
+          <div style={{ marginTop:20 }} className="fade-in">
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+              <button onClick={() => setWeekOffset(w => w-1)} style={S.btn("ghost")}>← Prev</button>
+              <span style={{ fontSize:13, color:C.accentTxt, fontWeight:700 }}>{getWeekLabel(weekOffset)}</span>
+              <button onClick={() => setWeekOffset(w => Math.min(0,w+1))} style={{ ...S.btn("ghost"), opacity: weekOffset>=0?0.4:1 }} disabled={weekOffset>=0}>Next →</button>
+            </div>
+
+            <div style={{ ...S.card, marginBottom:14 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                <div>
+                  <div style={{ fontSize:15, fontWeight:800, color:C.text }}>Weekly Shopping List</div>
+                  <div style={{ fontSize:11.5, color:C.text3, marginTop:2 }}>Based on this week's main recipes</div>
+                </div>
+                <button onClick={resetShop} style={S.btn("ghost")}>Reset</button>
+              </div>
+              <div style={{ background:C.borderSub, borderRadius:99, height:8, overflow:"hidden" }}>
+                <div style={{ width:`${allShopItems?(checkedCount/allShopItems)*100:0}%`, height:"100%", background:`linear-gradient(90deg,${C.accent},${C.green})`, borderRadius:99, transition:"width 0.3s" }}/>
+              </div>
+              <div style={{ fontSize:12, color:C.text2, marginTop:6 }}>{checkedCount} of {allShopItems} items collected</div>
+            </div>
+
+            {GROCERIES.map(group => {
+              const groupChecked = group.items.filter(it => shopState[slug(group.cat + it)]).length;
+              return (
+                <div key={group.cat} style={{ ...S.card, padding:0, overflow:"hidden" }}>
+                  <div style={{ padding:"11px 16px", borderBottom:`1px solid ${C.borderSub}`, display:"flex", justifyContent:"space-between", alignItems:"center", background:C.cardAlt }}>
+                    <span style={{ fontSize:11.5, fontWeight:800, letterSpacing:1.5, textTransform:"uppercase", color:C.accentTxt }}>{group.cat}</span>
+                    <span style={{ fontSize:11, color:C.text3 }}>{groupChecked}/{group.items.length}</span>
+                  </div>
+                  {group.items.map((it,i) => {
+                    const id = slug(group.cat + it);
+                    const done = !!shopState[id];
+                    return (
+                      <div key={i} onClick={()=>toggleShop(id)} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px", cursor:"pointer", borderBottom: i<group.items.length-1?`1px solid ${C.borderSub}`:"none" }}>
+                        <div style={{ width:22, height:22, borderRadius:6, border:`2px solid ${done?C.green:C.borderMid}`, background: done?C.green:"transparent", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:"#10211a", fontWeight:800 }}>
+                          {done ? "✓" : ""}
+                        </div>
+                        <span style={{ fontSize:14, color: done?C.faint:C.text, textDecoration: done?"line-through":"none", lineHeight:1.4 }}>{it}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            <div style={{ ...S.card, borderColor:"#3a3060", background:C.cardWarm, marginTop:4 }}>
+              <p style={{ fontSize:12.5, color:C.text2, lineHeight:1.6 }}>Tick items as you grab them — your progress saves for this week. Each new week starts with a fresh, unticked list.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── WEIGHT ──────────────────────────────────────────────────────── */}
+        {view === "weight" && (
+          <div style={{ marginTop:20 }} className="fade-in">
+            <div style={{ ...S.card, marginBottom:16 }}>
+              <div style={S.eyebrow}>Log Today's Weight</div>
+              <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                <input style={{ ...S.input, width:110 }} type="number" step="0.1" min="30" max="300" placeholder="e.g. 72.5" value={wtInput} onChange={e => setWtInput(e.target.value)} />
+                <span style={{ color:C.text3, alignSelf:"center", fontSize:13 }}>kg</span>
+                <button onClick={addWeight} style={{ ...S.btn("primary"), marginLeft:"auto" }}>Log Weight</button>
+              </div>
+              <input style={S.input} placeholder="Optional note (e.g. 'time of month', 'felt bloated')" value={wtNote} onChange={e => setWtNote(e.target.value)} />
+            </div>
+
+            {latest && (
+              <div style={{ ...S.card, marginBottom:16 }}>
+                <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+                  {[["Start", startWeight.toFixed(1)+" kg",C.text3],["Current",fmtKg(latest.kg),C.accentTxt],["Change",(delta>0?"+":"")+delta+" kg",delta<=0?C.greenTxt:C.red],["Goal", goals.goalWeight!=null?goals.goalWeight.toFixed(1)+" kg":"Lean & strong",C.blue]].map(([lbl,val,col]) => (
+                    <div key={lbl} style={{ flex:"1 1 90px" }}>
+                      <div style={{ fontSize:10, color:C.faint, textTransform:"uppercase", letterSpacing:2 }}>{lbl}</div>
+                      <div style={{ fontSize:17, fontWeight:800, color:col, marginTop:2 }}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {weightLog.length > 1 && (() => {
+              const sorted = [...weightLog].reverse();
+              const vals = sorted.map(e=>e.kg);
+              const mn = Math.min(...vals)-0.5, mx = Math.max(...vals)+0.5, rng = mx-mn;
+              const W=560, H=110;
+              const pts = sorted.map((e,i) => `${(i/(sorted.length-1))*(W-40)+20},${H-((e.kg-mn)/rng)*(H-20)-10}`);
+              return (
+                <div style={{ ...S.card, marginBottom:16, overflowX:"auto" }}>
+                  <div style={S.eyebrow}>Weight Trend</div>
+                  <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", height:H }}>
+                    <polyline points={pts.join(" ")} fill="none" stroke={C.accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    {sorted.map((e,i) => {
+                      const x=(i/(sorted.length-1))*(W-40)+20, y=H-((e.kg-mn)/rng)*(H-20)-10;
+                      return <circle key={i} cx={x} cy={y} r="3.5" fill={C.accentTxt}/>;
+                    })}
+                  </svg>
+                </div>
+              );
+            })()}
+
+            <div style={S.eyebrow}>Log History</div>
+            {weightLog.length === 0 && <div style={{ ...S.card, color:C.text3, fontSize:13, textAlign:"center" }}>No weight logged yet. Add your first weigh-in above.</div>}
+            {weightLog.map((e,i) => (
+              <div key={i} style={{ ...S.card, display:"flex", alignItems:"center", gap:12 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:18, fontWeight:800, color:C.accentTxt }}>{fmtKg(e.kg)}</div>
+                  <div style={{ fontSize:12.5, color:C.text3 }}>{fmtDate(e.date)}{e.note ? " · "+e.note : ""}</div>
+                  {i < weightLog.length-1 && (
+                    <div style={{ fontSize:11.5, color: e.kg<weightLog[i+1].kg?C.greenTxt:C.red, marginTop:2 }}>
+                      {(e.kg-weightLog[i+1].kg).toFixed(1)} kg from previous
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => deleteWeight(i)} style={S.btn("danger")}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── HISTORY ─────────────────────────────────────────────────────── */}
+        {view === "history" && (
+          <div style={{ marginTop:20 }} className="fade-in">
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+              <button onClick={() => setWeekOffset(w=>w-1)} style={S.btn("ghost")}>← Prev Week</button>
+              <span style={{ fontSize:13, color:C.accentTxt, fontWeight:700 }}>{getWeekLabel(weekOffset)}</span>
+              <button onClick={() => setWeekOffset(w=>Math.min(0,w+1))} style={{ ...S.btn("ghost"), opacity:weekOffset>=0?0.4:1 }} disabled={weekOffset>=0}>Next →</button>
+            </div>
+
+            <div style={{ ...S.card, marginBottom:16 }}>
+              <div style={{ fontSize:12.5, color:C.accentTxt, fontWeight:800, marginBottom:10 }}>{getWeekLabel(weekOffset)} — Daily Calories</div>
+              {DAYS.map(day => {
+                const logged  = dayCals(day, true);
+                const planned = dayCals(day, false);
+                const hasLog  = SLOTS.some(s => weekData[day]?.[s]?.logged);
+                const display = hasLog ? logged : planned;
+                const color   = calColor(display);
+                const pct     = Math.min((display/TARGET)*100,100);
+                return (
+                  <div key={day} onClick={() => { setView("tracker"); setActiveDay(day); setDayView("diary"); }} style={{ padding:"7px 0", cursor:"pointer", borderBottom:`1px solid ${C.borderSub}` }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
+                      <span style={{ fontSize:13, color:C.text2 }}>{day}</span>
+                      <span style={{ fontSize:12, fontWeight:700, color }}>{display} kcal {!hasLog && <span style={{ color:C.faint, fontWeight:400 }}>(planned)</span>}</span>
+                    </div>
+                    <div style={{ background:C.borderSub, borderRadius:99, height:4 }}>
+                      <div style={{ width:`${pct}%`, height:"100%", background:color, borderRadius:99 }}/>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ marginTop:10, paddingTop:8, borderTop:`1px solid ${C.borderMid}`, display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:12, color:C.text3 }}>Week total (logged only)</span>
+                <span style={{ fontSize:14, fontWeight:800, color:C.accentTxt }}>{DAYS.reduce((s,d)=>s+dayCals(d,true),0)} kcal</span>
+              </div>
+            </div>
+
+            {(() => {
+              const customs = [];
+              DAYS.forEach(day => SLOTS.forEach(slot => { const d=weekData[day]?.[slot]; if(d?.override) customs.push({day,slot,...d.override}); }));
+              return customs.length > 0 ? (
+                <div style={{ ...S.card, marginBottom:16 }}>
+                  <div style={{ fontSize:11, color:C.amber, letterSpacing:2, textTransform:"uppercase", marginBottom:8, fontWeight:700 }}>Custom meals this week</div>
+                  {customs.map((c,i) => (
+                    <div key={i} style={{ padding:"6px 0", borderBottom: i<customs.length-1?`1px solid ${C.borderSub}`:"none" }}>
+                      <div style={{ fontSize:11, color:C.text3 }}>{c.day} · {c.slot}</div>
+                      <div style={{ fontSize:13.5, color:C.amber }}>{c.text} <span style={{ color:C.text3 }}>· {c.cal} kcal</span></div>
+                    </div>
+                  ))}
+                </div>
+              ) : null;
+            })()}
+
+            {weightLog.length > 0 && (
+              <div style={S.card}>
+                <div style={S.eyebrow}>Recent Weight</div>
+                {weightLog.slice(0,6).map((e,i) => (
+                  <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"4px 0", borderBottom:`1px solid ${C.borderSub}` }}>
+                    <span style={{ fontSize:12.5, color:C.text3 }}>{fmtDate(e.date)}{e.note?" · "+e.note:""}</span>
+                    <span style={{ fontSize:13.5, fontWeight:700, color:C.accentTxt }}>{fmtKg(e.kg)}</span>
+                  </div>
+                ))}
+                {weightLog.length > 6 && <div style={{ fontSize:11.5, color:C.faint, marginTop:6 }}>+{weightLog.length-6} more — view in Weight tab</div>}
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+      <div style={{ height:40 }}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
